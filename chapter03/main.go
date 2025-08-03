@@ -1,8 +1,10 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/csv"
 	"fmt"
@@ -14,8 +16,21 @@ import (
 	"strings"
 )
 
+var (
+	computer    = strings.NewReader("COMPUTER")
+	system      = strings.NewReader("SYSTEM")
+	programming = strings.NewReader("PROGRAMMING")
+)
+
 func main() {
-	teeReader()
+	aReader := io.NewSectionReader(programming, 5, 1)
+	sReader := io.LimitReader(system, 1)
+	cReader := io.LimitReader(computer, 1)
+	iReader := io.NewSectionReader(programming, 8, 1)
+	i2Reader := io.NewSectionReader(programming, 8, 1)
+	asciiReader := io.MultiReader(aReader, sReader, cReader, iReader, i2Reader)
+
+	io.Copy(os.Stdout, asciiReader)
 }
 
 func read(r io.Reader) {
@@ -44,7 +59,7 @@ func copy(w io.Writer, r io.Reader) {
 	_ = err
 }
 
-func copyN(w io.Writer, r io.Reader, size int64) {
+func copyNSample(w io.Writer, r io.Reader, size int64) {
 	writeSize, err := io.CopyN(w, r, size)
 	_ = writeSize
 	_ = err
@@ -108,7 +123,6 @@ func dumpChunk(chunk io.Reader) {
 	binary.Read(chunk, binary.BigEndian, &length)
 	buffer := make([]byte, 4)
 	chunk.Read(buffer)
-	fmt.Printf("chunk '%v' (%d bytes)\n", string(buffer), length)
 	if bytes.Equal(buffer, []byte("teXt")) {
 		rawText := make([]byte, length)
 		chunk.Read(rawText)
@@ -257,4 +271,71 @@ func teeReader() {
 	teeReader := io.TeeReader(reader, &buffer)
 	_, _ = io.ReadAll(teeReader)
 	fmt.Println(buffer.String())
+}
+
+func copyFile() {
+	inputFile, err := os.Open("old.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer inputFile.Close()
+
+	outputFile, err := os.Create("new.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer outputFile.Close()
+
+	io.Copy(outputFile, inputFile)
+}
+
+func createFileWithRandomContent() {
+	file, err := os.Create("random.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	data := make([]byte, 1024)
+
+	_, err = rand.Read(data)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = file.Write(data)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func createZip() {
+	file, err := os.Create("test.zip")
+	if err != nil {
+		panic(err)
+	}
+
+	zipWriter := zip.NewWriter(file)
+	defer zipWriter.Close()
+
+	writer, err := zipWriter.Create("newFile.txt")
+	if err != nil {
+		panic(err)
+	}
+	writer.Write([]byte("Hello, World!"))
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=ascii_sample.zip")
+}
+
+func downloadZip() {
+	http.HandleFunc("/", handler)
+	http.ListenAndServe(":8080", nil)
+}
+
+func copyN(dest io.Writer, src io.Reader, length int64) (written int64, err error) {
+	reader := io.LimitReader(src, length)
+	return io.Copy(dest, reader)
 }
