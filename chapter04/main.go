@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"time"
 )
 
 func main() {
-	contextSample()
+	timer(3)
 }
 
-func timer() {
+func timerSample() {
 	fmt.Println("start sub()")
 	done := make(chan bool)
 	go func() {
@@ -52,4 +53,11 @@ func contextSample() {
 	}()
 	<-ctx.Done()
 	fmt.Println("all tasks are finished")
+}
+
+func timer(n int64) {
+	fmt.Println("Timer has started.")
+	ch := time.After(time.Duration(n) * time.Second)
+	<-ch
+	fmt.Println("Timer finished.")
 }
