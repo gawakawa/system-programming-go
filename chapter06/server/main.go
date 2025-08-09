@@ -11,6 +11,14 @@ import (
 	"time"
 )
 
+// Can a client accept gzip?
+func isGZipAcceptable(request *http.Request) bool {
+	return strings.Contains(
+		strings.Join(request.Header["Accept-Encoding"], ","),
+		"gzip",
+	)
+}
+
 func main() {
 	listener, err := net.Listen("tcp", "localhost:8888")
 	if err != nil {
@@ -33,7 +41,9 @@ func main() {
 				// set timeout
 				conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
-				request, err := http.ReadRequest(bufio.NewReader(conn))
+				request, err := http.ReadRequest(
+					bufio.NewReader(conn),
+				)
 				if err != nil {
 					neterr, ok := err.(net.Error)
 					// timeout
@@ -61,7 +71,9 @@ func main() {
 					ProtoMajor:    1,
 					ProtoMinor:    1,
 					ContentLength: int64(len(content)),
-					Body:          io.NopCloser(strings.NewReader(content)),
+					Body: io.NopCloser(
+						strings.NewReader(content),
+					),
 				}
 				response.Write(conn)
 			}
